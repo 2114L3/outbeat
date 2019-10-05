@@ -6,6 +6,7 @@ allow a secure network without any inbound traffic allowed, to poll this php fil
 
 ## Usage
 target network to call (eg curl) `https://hostname.tld/outbeat.php?token=UPDATETOKENHERE`
+
 monitoring network to call `https://hostname.tld/outbeat.php?token=READTOKENHERE`
 
 ## How
