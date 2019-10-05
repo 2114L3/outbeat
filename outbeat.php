@@ -1,24 +1,36 @@
 <?php
+// CONFIG
+define("UPDATE_TOKEN", "B1JHLGLJ4GJKJ0WPDWZ2XRQGNWKK9MSCPTHA");
+define("READJSON_TOKEN", "TN82CUD7E6C6");
+define("READ_TOKEN", "SGVQZ5KXC7QM");
+define("FILENAME", "stamp.json");
+define("TIMEOUT", 2*60);
 
 class Outbeat
 {
-  public $file = 'stamp.json';
-  public $timeout = 2 * 60; //2mins
+  public $file = FILENAME;
+  public $timeout = TIMEOUT; //2mins
   public $content;
   public $stamp;
+  public $now;
+  public $diff = 0;
   public $state_ok;
   public $error = false;
+  public $wrote_int;
 
   function __construct() {
       if (!$this->getFile()){
         $this->error = true;
-      }
-      $obj = json_decode($this->content);
-      $this->stamp = $obj->{'last'};
-      if ($this->stamp + $this->timeout > time()){
-        $this->state_ok = false;
       } else {
-        $this->state_ok = true;
+        $obj = json_decode($this->content);
+        $this->now = time();
+        $this->stamp = $obj->{'last'};
+        $this->diff = $this->now - $this->stamp;
+        if ($this->diff > $this->timeout){
+          $this->state_ok = false;
+        } else {
+          $this->state_ok = true;
+        }
       }
   }
 
@@ -42,10 +54,30 @@ class Outbeat
     }
   }
 
+  function responseObject($wrote){
+    $result->{'last'} = $this->stamp;
+    $result->{'now'} = $this->now;
+    $result->{'wrote'} = $wrote;
+    $result->{'diff'} = $this->diff;
+    $result->{'timeout'} = $this->timeout;
+    $result->{'status'} = $this->state_ok?'good':'bad';
+    $result->{'state_ok'} = $this->state_ok;
+    return $result;
+  }
+
+  public function readJson(){
+    if($this->error){
+      return json_encode(array('error'=>'can not read file'));
+    }
+
+    return json_encode($this->responseObject(true));
+  }
+
   public function updateFile() {
-    $now = json_encode(array('last'=>time()));
-    if(file_put_contents($file, $now)) {
-      return $this->getFile();
+    $now = json_encode(array('last'=>$this->now ));
+    if(file_put_contents($this->file, $now)) {
+      $this->wrote_int = $this->now;
+      return 1;
     } else {
       return 0;
     }
@@ -53,7 +85,7 @@ class Outbeat
 
   public function update(){
     if ($this->updateFile()){
-      return $this->content;
+      return json_encode($this->responseObject(false));
     } else {
       return json_encode(array('error'=>'can not update'));
     }
@@ -64,25 +96,38 @@ class Outbeat
 if (isset($_REQUEST['token'])){
   $ob = new Outbeat();
 
+  if ($ob->error){
+    echo "error";
+    exit();
+  }
+
   //update
-  if ($_REQUEST['token'] === "J5E66Q1H5S0TLXSNYF493MLU9N1A8S19OL3J_SECURE_UPDATE_TOKEN"){
+  if ($_REQUEST['token'] === UPDATE_TOKEN){
     header('Content-Type: application/json');
-    $ob->update();
+    echo $ob->update();
+    exit();
   }
 
   //json state
-  if (isset($_REQUEST['token']) && $_REQUEST['token'] === "AQ6127Z3KNSA_JSON_READ_TOKEN"){
+  if ($_REQUEST['token'] === READJSON_TOKEN){
     header('Content-Type: application/json');
-    $ob->content;
+    echo $ob->readJson();
+    exit();
   }
 
   //text state
-  if (isset($_REQUEST['token']) && $_REQUEST['token'] === "7PHIWRM2LI7B_READ_TOKEN"){
-    echo $ob->state;
+  if ($_REQUEST['token'] === READ_TOKEN){
+    if ($ob->state_ok){
+      echo "good";
+    } else {
+      echo "bad";
+    }
+    exit();
   }
 
 } else {
   echo "error";
+  exit();
 }
 
 ?>
